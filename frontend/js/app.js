@@ -1,7 +1,9 @@
 // frontend/js/app.js
 // Structural Analysis Application - Frontend Controller
 
-const API_URL = 'http://localhost:5000/api';
+// API URL comes from environment variable injected at build time; defaults for local dev
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 
 // State Management
 let currentState = {
