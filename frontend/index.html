@@ -1,0 +1,554 @@
+<!-- frontend/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Structural Analysis Pro | BS8110 Design Suite</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <i class="fas fa-drafting-compass"></i>
+                <span>StructPro</span>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item active" data-section="beam">
+                    <i class="fas fa-grip-lines"></i>
+                    <span>Beam Analysis</span>
+                </li>
+                <li class="nav-item" data-section="frame">
+                    <i class="fas fa-border-all"></i>
+                    <span>Frame Analysis</span>
+                </li>
+                <li class="nav-item" data-section="design">
+                    <i class="fas fa-calculator"></i>
+                    <span>BS8110 Design</span>
+                </li>
+                <li class="nav-item" data-section="results">
+                    <i class="fas fa-table"></i>
+                    <span>Results Database</span>
+                </li>
+            </ul>
+            
+            <div class="sidebar-footer">
+                <div class="version">v2.0.0</div>
+                <div class="status online">System Ready</div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-bar">
+                <h1 id="page-title">Beam Structural Analysis</h1>
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="clearAll()">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                    <button class="btn btn-primary" onclick="runAnalysis()">
+                        <i class="fas fa-play"></i> Run Analysis
+                    </button>
+                    <button class="btn btn-success" onclick="exportReport()">
+                        <i class="fas fa-file-pdf"></i> Export Report
+                    </button>
+                </div>
+            </header>
+
+            <!-- Beam Analysis Section -->
+            <section id="beam-section" class="content-section active">
+                <div class="grid-layout">
+                    <!-- Input Panel -->
+                    <div class="panel input-panel">
+                        <div class="panel-header">
+                            <h3><i class="fas fa-sliders-h"></i> Model Configuration</h3>
+                        </div>
+                        
+                        <div class="tabs">
+                            <button class="tab-btn active" onclick="switchTab('geometry')">Geometry</button>
+                            <button class="tab-btn" onclick="switchTab('supports')">Supports</button>
+                            <button class="tab-btn" onclick="switchTab('loads')">Loads</button>
+                        </div>
+
+                        <!-- Geometry Tab -->
+                        <div id="geometry-tab" class="tab-content active">
+                            <div class="form-group">
+                                <label>Beam Length (m)</label>
+                                <input type="number" id="beam-length" value="6.0" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label>Number of Elements</label>
+                                <input type="number" id="num-elements" value="2" min="1" max="10">
+                            </div>
+                            <button class="btn btn-outline" onclick="generateBeamNodes()">
+                                <i class="fas fa-magic"></i> Generate Nodes
+                            </button>
+                        </div>
+
+                        <!-- Supports Tab -->
+                        <div id="supports-tab" class="tab-content">
+                            <div class="form-group">
+                                <label>Support Type</label>
+                                <select id="support-type">
+                                    <option value="fixed">Fixed (Encastre)</option>
+                                    <option value="pinned">Pinned</option>
+                                    <option value="roller">Roller</option>
+                                    <option value="free">Free</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Position (m)</label>
+                                <input type="number" id="support-pos" step="0.1">
+                            </div>
+                            <button class="btn btn-outline" onclick="addSupport()">
+                                <i class="fas fa-plus"></i> Add Support
+                            </button>
+                            <div id="supports-list" class="item-list"></div>
+                        </div>
+
+                        <!-- Loads Tab -->
+                        <div id="loads-tab" class="tab-content">
+                            <div class="form-group">
+                                <label>Load Type</label>
+                                <select id="load-type" onchange="updateLoadForm()">
+                                    <option value="point">Point Load</option>
+                                    <option value="udl">Uniformly Distributed</option>
+                                    <option value="moment">Applied Moment</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Magnitude (kN or kN/m)</label>
+                                <input type="number" id="load-magnitude" step="0.1">
+                            </div>
+                            <div class="form-group" id="load-position-group">
+                                <label>Position from Left (m)</label>
+                                <input type="number" id="load-position" step="0.1">
+                            </div>
+                            <div class="form-group hidden" id="load-end-group">
+                                <label>End Position (m)</label>
+                                <input type="number" id="load-end" step="0.1">
+                            </div>
+                            <button class="btn btn-outline" onclick="addLoad()">
+                                <i class="fas fa-plus"></i> Add Load
+                            </button>
+                            <div id="loads-list" class="item-list"></div>
+                        </div>
+
+                    </div>
+
+                    <!-- Visualization Panel -->
+                    <div class="panel viz-panel">
+                        <div class="panel-header">
+                            <h3><i class="fas fa-eye"></i> Model Preview</h3>
+                        </div>
+                        <canvas id="beam-canvas" width="600" height="300"></canvas>
+                        <div class="canvas-controls">
+                            <button onclick="zoomIn()"><i class="fas fa-search-plus"></i></button>
+                            <button onclick="zoomOut()"><i class="fas fa-search-minus"></i></button>
+                            <button onclick="resetView()"><i class="fas fa-expand"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Results Panel -->
+                    <div class="panel results-panel full-width">
+                        <div class="panel-header">
+                            <h3><i class="fas fa-chart-line"></i> Analysis Results</h3>
+                            <div class="result-tabs">
+                                <button class="res-tab active" onclick="showResultTab('diagrams')">Diagrams</button>
+                                <button class="res-tab" onclick="showResultTab('tables')">Data Tables</button>
+                                <button class="res-tab" onclick="showResultTab('design')">BS8110 Design</button>
+                            </div>
+                        </div>
+                        
+                        <div id="diagrams-view" class="result-content active">
+                            <div class="diagram-container">
+                                <img id="result-plot" src="" alt="Analysis Results" class="result-image">
+                            </div>
+                        </div>
+                        
+                        <div id="tables-view" class="result-content">
+                            <div class="table-responsive">
+                                <table class="data-table" id="reactions-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Node</th>
+                                            <th>Position</th>
+                                            <th>Type</th>
+                                            <th>Vertical Force (kN)</th>
+                                            <th>Moment (kNm)</th>
+                                            <th>Settlement (mm)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                            <div class="summary-cards">
+                                <div class="card">
+                                    <div class="card-title">Maximum Moment</div>
+                                    <div class="card-value" id="max-moment">-</div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-title">Maximum Shear</div>
+                                    <div class="card-value" id="max-shear">-</div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-title">Maximum Deflection</div>
+                                    <div class="card-value" id="max-deflection">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="design-view" class="result-content">
+                            <div class="design-form">
+                                <h4>BS8110 Reinforcement Design</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Concrete Grade (fcu)</label>
+                                        <select id="concrete-grade">
+                                            <option value="30">C30</option>
+                                            <option value="35">C35</option>
+                                            <option value="40">C40</option>
+                                            <option value="45">C45</option>
+                                            <option value="50">C50</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Steel Grade (fy)</label>
+                                        <select id="steel-grade">
+                                            <option value="460">460 N/mm²</option>
+                                            <option value="500">500 N/mm²</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" onclick="runDesign()">
+                                    <i class="fas fa-calculator"></i> Calculate Reinforcement
+                                </button>
+                            </div>
+                            
+                            <div id="design-results" class="design-output hidden">
+                                <div class="reinforcement-detail">
+                                    <div class="detail-header">Main Reinforcement</div>
+                                    <div class="detail-grid">
+                                        <div class="detail-item">
+                                            <span class="label">Required Area:</span>
+                                            <span class="value" id="req-area">-</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="label">Provided:</span>
+                                            <span class="value" id="prov-reinf">-</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="label">Bar Spacing:</span>
+                                            <span class="value" id="bar-spacing">-</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="label">Moment Capacity:</span>
+                                            <span class="value" id="moment-cap">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="reinforcement-detail">
+                                    <div class="detail-header">Shear Reinforcement</div>
+                                    <div class="detail-grid">
+                                        <div class="detail-item">
+                                            <span class="label">Links Required:</span>
+                                            <span class="value" id="links-req">-</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="label">Link Details:</span>
+                                            <span class="value" id="link-details">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="checks-panel">
+                                    <div class="check-item" id="util-check">
+                                        <i class="fas fa-check-circle"></i>
+                                        <span>Utilization: <strong id="util-value">-</strong></span>
+                                    </div>
+                                    <div class="check-item" id="crack-check">
+                                        <i class="fas fa-check-circle"></i>
+                                        <span>Crack Width: <strong id="crack-value">-</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Frame Analysis Section -->
+            <section id="frame-section" class="content-section">
+                <div class="grid-layout">
+                    <div class="panel input-panel">
+                        <div class="panel-header">
+                            <h3><i class="fas fa-border-all"></i> Frame Configuration</h3>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Analysis Type</label>
+                            <select id="frame-type">
+                                <option value="sway">Sway Frame</option>
+                                <option value="non_sway">Non-Sway Frame</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Number of Storeys</label>
+                            <input type="number" id="frame-storeys" value="2" min="1" max="5">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Number of Bays</label>
+                            <input type="number" id="frame-bays" value="2" min="1" max="5">
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Storey Height (m)</label>
+                                <input type="number" id="storey-height" value="3.5" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label>Bay Width (m)</label>
+                                <input type="number" id="bay-width" value="6.0" step="0.1">
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-outline" onclick="generateFrame()">
+                            <i class="fas fa-magic"></i> Generate Frame
+                        </button>
+                        
+                        <div class="form-group" style="margin-top: 20px;">
+                            <label>Nodal Loads (kN)</label>
+                            <div class="form-row">
+                                <input type="number" id="nodal-fx" placeholder="Fx" step="0.1">
+                                <input type="number" id="nodal-fy" placeholder="Fy" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="panel viz-panel">
+                        <div class="panel-header">
+                            <h3><i class="fas fa-eye"></i> Frame Preview</h3>
+                        </div>
+                        <canvas id="frame-canvas" width="600" height="400"></canvas>
+                    </div>
+                    
+                    <div class="panel results-panel full-width">
+                        <div class="panel-header">
+                            <h3><i class="fas fa-chart-bar"></i> Frame Results</h3>
+                        </div>
+                        <div class="frame-results-grid">
+                            <div class="result-subpanel">
+                                <h4>Member Forces</h4>
+                                <table class="data-table" id="member-forces-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Member</th>
+                                            <th>Axial (kN)</th>
+                                            <th>Shear (kN)</th>
+                                            <th>Moment (kNm)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                            <div class="result-subpanel">
+                                <h4>Nodal Displacements</h4>
+                                <table class="data-table" id="nodal-disp-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Node</th>
+                                            <th>Δx (mm)</th>
+                                            <th>Δy (mm)</th>
+                                            <th>θ (rad)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <img id="frame-plot" src="" alt="Frame Analysis" class="result-image">
+                    </div>
+                </div>
+            </section>
+
+            <!-- BS8110 Design Section -->
+            <section id="design-section" class="content-section">
+                <div class="design-suite">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3><i class="fas fa-calculator"></i> BS8110-1:1997 Design Module</h3>
+                        </div>
+                        
+                        <div class="design-grid">
+                            <div class="design-inputs">
+                                <h4>Section Properties</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Width b (mm)</label>
+                                        <input type="number" id="bs8110-b" value="300">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Effective Depth d (mm)</label>
+                                        <input type="number" id="bs8110-d" value="450">
+                                    </div>
+                                </div>
+                                
+                                <h4>Loading</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Design Moment M (kNm)</label>
+                                        <input type="number" id="bs8110-m" value="150">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Design Shear V (kN)</label>
+                                        <input type="number" id="bs8110-v" value="75">
+                                    </div>
+                                </div>
+                                
+                                <h4>Material Properties</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Concrete fcu (N/mm²)</label>
+                                        <select id="bs8110-fcu">
+                                            <option value="30">30 (C30)</option>
+                                            <option value="35">35 (C35)</option>
+                                            <option value="40">40 (C40)</option>
+                                            <option value="45">45 (C45)</option>
+                                            <option value="50">50 (C50)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Steel fy (N/mm²)</label>
+                                        <select id="bs8110-fy">
+                                            <option value="460">460</option>
+                                            <option value="500">500</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Moment Type</label>
+                                    <select id="bs8110-type">
+                                        <option value="true">Sagging (Bottom Steel)</option>
+                                        <option value="false">Hogging (Top Steel)</option>
+                                    </select>
+                                </div>
+                                
+                                <button class="btn btn-primary btn-large" onclick="runBS8110Design()">
+                                    <i class="fas fa-cogs"></i> Design to BS8110
+                                </button>
+                            </div>
+                            
+                            <div class="design-outputs">
+                                <div id="bs8110-results" class="design-report hidden">
+                                    <div class="report-header">
+                                        <h4>Design Output</h4>
+                                        <span class="status-badge" id="design-status">PASS</span>
+                                    </div>
+                                    
+                                    <div class="calculation-sheet">
+                                        <div class="calc-section">
+                                            <h5>1. Main Reinforcement</h5>
+                                            <div class="calc-line">
+                                                <span>K = M / (fcu·b·d²) =</span>
+                                                <span id="calc-k">-</span>
+                                            </div>
+                                            <div class="calc-line">
+                                                <span>z = d[0.5 + √(0.25 - K/0.9)] ≤ 0.95d =</span>
+                                                <span id="calc-z">-</span>
+                                            </div>
+                                            <div class="calc-line">
+                                                <span>As,req = M / (0.95·fy·z) =</span>
+                                                <span id="calc-as">-</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="reinf-summary">
+                                            <div class="reinf-visual">
+                                                <div class="section-drawing">
+                                                    <div class="beam-section">
+                                                        <div class="compression-zone">C</div>
+                                                        <div class="tension-steel" id="tension-reinf-visual">
+                                                            3T20
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="reinf-details">
+                                                <table class="detail-table">
+                                                    <tr>
+                                                        <td>Provided:</td>
+                                                        <td id="res-provided">-</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Area Provided:</td>
+                                                        <td id="res-area">-</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Spacing:</td>
+                                                        <td id="res-spacing">-</td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="calc-section">
+                                            <h5>2. Shear Design</h5>
+                                            <div class="calc-line">
+                                                <span>v = V / (b·d) =</span>
+                                                <span id="calc-v">-</span>
+                                            </div>
+                                            <div class="calc-line">
+                                                <span>vc = 0.79(100As/bd)^(1/3)(400/d)^(1/4)/1.25 =</span>
+                                                <span id="calc-vc">-</span>
+                                            </div>
+                                            <div class="calc-line">
+                                                <span>Links:</span>
+                                                <span id="calc-links">-</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="calc-section">
+                                            <h5>3. Serviceability Checks</h5>
+                                            <div class="check-grid">
+                                                <div class="check-box">
+                                                    <span class="check-label">Moment Utilization</span>
+                                                    <div class="progress-bar">
+                                                        <div class="progress-fill" id="util-bar"></div>
+                                                    </div>
+                                                    <span id="util-text">-</span>
+                                                </div>
+                                                <div class="check-box">
+                                                    <span class="check-label">Crack Width</span>
+                                                    <span class="check-value" id="crack-result">-</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <p>Running Analysis...</p>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
