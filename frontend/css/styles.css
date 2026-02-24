@@ -225,6 +225,24 @@ body {
     overflow: visible;
 }
 
+/* Add this to give consistent spacing inside panels without tabs */
+.panel-body {
+    padding: 24px;
+}
+
+/* Let the canvas breathe in the frame section */
+#frame-section .viz-panel canvas {
+    height: 400px; /* Overrides the default 300px */
+    border-radius: 0 0 12px 12px;
+}
+
+/* A clean divider for grouping inputs */
+.section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 24px 0 16px;
+}
+
 .panel-header {
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);

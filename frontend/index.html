@@ -71,9 +71,9 @@
                         </div>
                         
                         <div class="tabs">
-                            <button class="tab-btn active" onclick="switchTab('geometry')">Geometry</button>
-                            <button class="tab-btn" onclick="switchTab('supports')">Supports</button>
-                            <button class="tab-btn" onclick="switchTab('loads')">Loads</button>
+                            <button class="tab-btn active" onclick="switchTab(event,'geometry')">Geometry</button>
+                            <button class="tab-btn" onclick="switchTab(event,'supports')">Supports</button>
+                            <button class="tab-btn" onclick="switchTab(event,'loads')">Loads</button>
                         </div>
 
                         <!-- Geometry Tab -->
@@ -160,9 +160,9 @@
                         <div class="panel-header">
                             <h3><i class="fas fa-chart-line"></i> Analysis Results</h3>
                             <div class="result-tabs">
-                                <button class="res-tab active" onclick="showResultTab('diagrams')">Diagrams</button>
-                                <button class="res-tab" onclick="showResultTab('tables')">Data Tables</button>
-                                <button class="res-tab" onclick="showResultTab('design')">BS8110 Design</button>
+                                <button class="res-tab active" onclick="showResultTab(event,'diagrams')">Diagrams</button>
+                                <button class="res-tab" onclick="showResultTab(event,'tables')">Data Tables</button>
+                                <button class="res-tab" onclick="showResultTab(event,'design')">BS8110 Design</button>
                             </div>
                         </div>
                         
@@ -208,6 +208,16 @@
                             <div class="design-form">
                                 <h4>BS8110 Reinforcement Design</h4>
                                 <div class="form-row">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Section Width b (mm)</label>
+                                            <input type="number" id="section-b" value="300">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Section Depth d (mm)</label>
+                                            <input type="number" id="section-d" value="450">
+                                        </div>
+                                    </div>
                                     <div class="form-group">
                                         <label>Concrete Grade (fcu)</label>
                                         <select id="concrete-grade">
@@ -291,46 +301,56 @@
                         <div class="panel-header">
                             <h3><i class="fas fa-border-all"></i> Frame Configuration</h3>
                         </div>
-                        
-                        <div class="form-group">
-                            <label>Analysis Type</label>
-                            <select id="frame-type">
-                                <option value="sway">Sway Frame</option>
-                                <option value="non_sway">Non-Sway Frame</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Number of Storeys</label>
-                            <input type="number" id="frame-storeys" value="2" min="1" max="5">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Number of Bays</label>
-                            <input type="number" id="frame-bays" value="2" min="1" max="5">
-                        </div>
-                        
-                        <div class="form-row">
+            
+                        <div class="panel-body">
                             <div class="form-group">
-                                <label>Storey Height (m)</label>
-                                <input type="number" id="storey-height" value="3.5" step="0.1">
+                                <label>Analysis Type</label>
+                                <select id="frame-type">
+                                    <option value="sway">Sway Frame</option>
+                                    <option value="non_sway">Non-Sway Frame</option>
+                                </select>
                             </div>
-                            <div class="form-group">
-                                <label>Bay Width (m)</label>
-                                <input type="number" id="bay-width" value="6.0" step="0.1">
-                            </div>
-                        </div>
-                        
-                        <button class="btn btn-outline" onclick="generateFrame()">
-                            <i class="fas fa-magic"></i> Generate Frame
-                        </button>
-                        
-                        <div class="form-group" style="margin-top: 20px;">
-                            <label>Nodal Loads (kN)</label>
+                            
                             <div class="form-row">
-                                <input type="number" id="nodal-fx" placeholder="Fx" step="0.1">
-                                <input type="number" id="nodal-fy" placeholder="Fy" step="0.1">
+                                <div class="form-group">
+                                    <label>Storeys</label>
+                                    <input type="number" id="frame-storeys" value="2" min="1" max="5">
+                                </div>
+                                <div class="form-group">
+                                    <label>Bays</label>
+                                    <input type="number" id="frame-bays" value="2" min="1" max="5">
+                                </div>
                             </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Storey Height (m)</label>
+                                    <input type="number" id="storey-height" value="3.5" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Bay Width (m)</label>
+                                    <input type="number" id="bay-width" value="6.0" step="0.1">
+                                </div>
+                            </div>
+                            
+                            <button class="btn btn-outline" onclick="generateFrame()">
+                                <i class="fas fa-magic"></i> Generate Geometry
+                            </button>
+                            
+                            <div class="section-divider"></div>
+                            
+                            <div class="form-group">
+                                <label>Nodal Loads (kN)</label>
+                                <div class="form-row">
+                                    <input type="number" id="load-node" placeholder="Node ID" value="0" min="0" oninput="drawFrame()">
+                                    <input type="number" id="nodal-fx" placeholder="Fx (Horizontal)" step="0.1" oninput="drawFrame()">
+                                    <input type="number" id="nodal-fy" placeholder="Fy (Vertical)" step="0.1" oninput="drawFrame()">
+                                </div>
+                            </div>
+                            
+                            <button class="btn btn-primary" onclick="runFrameAnalysis()" style="width: 100%;">
+                                <i class="fas fa-play"></i> Run Frame Analysis
+                            </button>
                         </div>
                     </div>
                     
@@ -338,44 +358,47 @@
                         <div class="panel-header">
                             <h3><i class="fas fa-eye"></i> Frame Preview</h3>
                         </div>
-                        <canvas id="frame-canvas" width="600" height="400"></canvas>
+                        <div class="panel-body" style="padding: 0;"> <canvas id="frame-canvas" width="600" height="400"></canvas>
+                        </div>
                     </div>
                     
                     <div class="panel results-panel full-width">
                         <div class="panel-header">
                             <h3><i class="fas fa-chart-bar"></i> Frame Results</h3>
                         </div>
-                        <div class="frame-results-grid">
-                            <div class="result-subpanel">
-                                <h4>Member Forces</h4>
-                                <table class="data-table" id="member-forces-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Member</th>
-                                            <th>Axial (kN)</th>
-                                            <th>Shear (kN)</th>
-                                            <th>Moment (kNm)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
+                        <div class="panel-body">
+                            <div class="frame-results-grid">
+                                <div class="result-subpanel">
+                                    <h4>Member Forces</h4>
+                                    <table class="data-table" id="member-forces-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Member</th>
+                                                <th>Axial (kN)</th>
+                                                <th>Shear (kN)</th>
+                                                <th>Moment (kNm)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                                <div class="result-subpanel">
+                                    <h4>Nodal Displacements</h4>
+                                    <table class="data-table" id="nodal-disp-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Node</th>
+                                                <th>Δx (mm)</th>
+                                                <th>Δy (mm)</th>
+                                                <th>θ (rad)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
                             </div>
-                            <div class="result-subpanel">
-                                <h4>Nodal Displacements</h4>
-                                <table class="data-table" id="nodal-disp-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Node</th>
-                                            <th>Δx (mm)</th>
-                                            <th>Δy (mm)</th>
-                                            <th>θ (rad)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
+                            <img id="frame-plot" src="" alt="Frame Analysis diagram will appear here" class="result-image">
                         </div>
-                        <img id="frame-plot" src="" alt="Frame Analysis" class="result-image">
                     </div>
                 </div>
             </section>
@@ -550,6 +573,6 @@
     </div>
 
     <!-- Vite will process this module and inject environment variables -->
-    <script type="module" src="/js/app.js"></script>
+    <script type="module" src="./js/app.js"></script>
 </body>
 </html>

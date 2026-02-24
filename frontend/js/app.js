@@ -2,7 +2,7 @@
 // Structural Analysis Application - Frontend Controller
 
 // API URL comes from environment variable injected at build time; defaults for local dev
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 
 // State Management
@@ -26,40 +26,51 @@ let currentState = {
 // Navigation
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
+        const section = item.dataset.section;
+        const targetSection = document.getElementById(`${section}-section`);
+        
+        // Safety check: Only proceed if the target section actually exists in the HTML
+        if (!targetSection) {
+            console.warn(`Section ID '${section}-section' not found.`);
+            return; 
+        }
+
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
         item.classList.add('active');
         
-        const section = item.dataset.section;
         document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-        document.getElementById(`${section}-section`).classList.add('active');
+        targetSection.classList.add('active');
         
         // Update title
         const titles = {
             beam: 'Beam Structural Analysis',
             frame: '2D Frame Analysis',
             design: 'BS8110 Reinforcement Design',
-            results: 'Results Database'
+            results: 'Results Database' // You'll need to build this HTML section eventually!
         };
         document.getElementById('page-title').textContent = titles[section];
     });
 });
 
 // Tab Switching
-function switchTab(tabName) {
+function switchTab(evt, tabName) {
+    // `evt` is passed from the inline onclick handler
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     
-    event.target.classList.add('active');
+    evt.target.classList.add('active');
     document.getElementById(`${tabName}-tab`).classList.add('active');
 }
 
-function showResultTab(tabName) {
+
+function showResultTab(evt, tabName) {
     document.querySelectorAll('.res-tab').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.result-content').forEach(content => content.classList.remove('active'));
     
-    event.target.classList.add('active');
+    evt.target.classList.add('active');
     document.getElementById(`${tabName}-view`).classList.add('active');
 }
+
 
 // Beam Functions
 function generateBeamNodes() {
@@ -233,7 +244,9 @@ function drawBeam() {
     if (currentState.beam.nodes.length === 0) return;
     
     const maxX = Math.max(...currentState.beam.nodes.map(n => n.x));
-    const scale = (width - 100) / maxX;
+    let scale = (width - 100) / maxX;
+    // apply zoom factor
+    scale *= beamViewScale;
     const offsetY = height / 2;
     
     // Draw beam line
@@ -484,9 +497,17 @@ async function runDesign() {
     const moment = currentState.analysisResults.summary.max_moment;
     const shear = currentState.analysisResults.summary.max_shear;
     
+    // reads the section dimensions that are now present in the UI
+    const breadth = parseFloat(document.getElementById('section-b').value);
+    const depth = parseFloat(document.getElementById('section-d').value);
+    if (isNaN(breadth) || isNaN(depth) || breadth <= 0 || depth <= 0) {
+        alert('Please enter valid section dimensions.');
+        return;
+    }
+    
     const payload = {
-        breadth: parseFloat(document.getElementById('section-b').value),
-        depth: parseFloat(document.getElementById('section-d').value),
+        breadth: breadth,
+        depth: depth,
         moment: moment,
         shear: shear,
         is_sagging: true,
@@ -514,6 +535,7 @@ async function runDesign() {
         showLoading(false);
     }
 }
+
 
 function displayDesignResults(data) {
     const design = data.design;
@@ -677,14 +699,15 @@ function drawFrame() {
     const maxX = Math.max(...currentState.frame.nodes.map(n => n.x));
     const maxY = Math.max(...currentState.frame.nodes.map(n => n.y));
     
-    const scaleX = (canvas.width - 100) / maxX;
-    const scaleY = (canvas.height - 100) / maxY;
+    // Add some padding to the scale so labels/arrows don't get cut off
+    const scaleX = (canvas.width - 120) / (maxX || 1); 
+    const scaleY = (canvas.height - 120) / (maxY || 1);
     const scale = Math.min(scaleX, scaleY);
     
-    const offsetX = 50;
-    const offsetY = canvas.height - 50;
+    const offsetX = 60;
+    const offsetY = canvas.height - 60;
     
-    // Draw elements
+    // 1. Draw elements
     ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 3;
     
@@ -698,7 +721,7 @@ function drawFrame() {
         ctx.stroke();
     });
     
-    // Draw nodes
+    // 2. Draw nodes and labels
     currentState.frame.nodes.forEach(node => {
         const x = offsetX + node.x * scale;
         const y = offsetY - node.y * scale;
@@ -712,7 +735,62 @@ function drawFrame() {
             ctx.arc(x, y, 4, 0, Math.PI * 2);
             ctx.fill();
         }
+        
+        // Draw Node ID Label
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '12px Inter';
+        ctx.fillText(`N${node.id}`, x + 8, y - 8);
     });
+
+    // 3. Draw Nodal Loads (Visual Feedback)
+    const targetNodeId = parseInt(document.getElementById('load-node')?.value);
+    const fx = parseFloat(document.getElementById('nodal-fx')?.value);
+    const fy = parseFloat(document.getElementById('nodal-fy')?.value);
+    
+    const targetNode = currentState.frame.nodes.find(n => n.id === targetNodeId);
+    
+    if (targetNode && (!isNaN(fx) && fx !== 0 || !isNaN(fy) && fy !== 0)) {
+        const x = offsetX + targetNode.x * scale;
+        const y = offsetY - targetNode.y * scale;
+        
+        ctx.strokeStyle = '#ef4444'; // Red for forces
+        ctx.fillStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        
+        // Helper function to draw arrows
+        const drawArrow = (fromX, fromY, toX, toY) => {
+            const headlen = 10;
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+            
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+        };
+
+        const arrowLen = 40;
+
+        // Draw Fx (Horizontal)
+        if (!isNaN(fx) && fx !== 0) {
+            const startX = fx > 0 ? x - arrowLen : x + arrowLen;
+            drawArrow(startX, y, x, y);
+            ctx.fillText(`${Math.abs(fx)}kN`, startX + (fx > 0 ? -30 : 10), y - 5);
+        }
+        
+        // Draw Fy (Vertical)
+        if (!isNaN(fy) && fy !== 0) {
+            // Note: Canvas Y is inverted. Negative Fy (downward) starts ABOVE the node.
+            const startY = fy > 0 ? y + arrowLen : y - arrowLen;
+            drawArrow(x, startY, x, y);
+            ctx.fillText(`${Math.abs(fy)}kN`, x + 10, startY + (fy > 0 ? 15 : -5));
+        }
+    }
 }
 
 async function runFrameAnalysis() {
@@ -720,8 +798,22 @@ async function runFrameAnalysis() {
         analysis_type: document.getElementById('frame-type').value,
         nodes: currentState.frame.nodes,
         elements: currentState.frame.elements,
-        loads: [] // Add load collection similar to beam
+        loads: []
     };
+    
+    // Grab the specific node and loads
+    const nodeId = parseInt(document.getElementById('load-node').value);
+    const fx = parseFloat(document.getElementById('nodal-fx').value);
+    const fy = parseFloat(document.getElementById('nodal-fy').value);
+    
+    // Safety check: ensure nodeId is valid before adding to payload
+    if (!isNaN(nodeId) && (!isNaN(fx) || !isNaN(fy))) {
+        payload.loads.push({ 
+            node: nodeId, 
+            fx: fx || 0, 
+            fy: fy || 0 
+        });
+    }
     
     showLoading(true);
     
@@ -765,6 +857,21 @@ async function runFrameAnalysis() {
     }
 }
 
+// Zoom / view helpers
+let beamViewScale = 1;
+function zoomIn() {
+    beamViewScale *= 1.2;
+    drawBeam();
+}
+function zoomOut() {
+    beamViewScale /= 1.2;
+    drawBeam();
+}
+function resetView() {
+    beamViewScale = 1;
+    drawBeam();
+}
+
 // Utilities
 function showLoading(show) {
     document.getElementById('loading-overlay').classList.toggle('hidden', !show);
@@ -798,3 +905,25 @@ function exportReport() {
 document.addEventListener('DOMContentLoaded', () => {
     generateBeamNodes();
 });
+
+
+// --- Global Scope Exports ---
+// Expose functions to the window object so inline HTML onclick handlers can access them
+window.switchTab = switchTab;
+window.showResultTab = showResultTab;
+window.generateBeamNodes = generateBeamNodes;
+window.addSupport = addSupport;
+window.removeSupport = removeSupport;
+window.updateLoadForm = updateLoadForm;
+window.addLoad = addLoad;
+window.removeLoad = removeLoad;
+window.runAnalysis = runAnalysis;
+window.runDesign = runDesign;
+window.runBS8110Design = runBS8110Design;
+window.generateFrame = generateFrame;
+window.runFrameAnalysis = runFrameAnalysis;
+window.zoomIn = zoomIn;
+window.zoomOut = zoomOut;
+window.resetView = resetView;
+window.clearAll = clearAll;
+window.exportReport = exportReport;
